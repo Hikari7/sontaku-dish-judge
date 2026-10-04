@@ -44,3 +44,9 @@ The API key is embedded in the app (APK) at build time, so **anyone who gets the
 
 The models are listed in `geminiModels` in `lib/gemini_service.dart`.
 When one is too busy (503), the app falls back to the next one.
+
+
+### Demo
+
+https://github.com/user-attachments/assets/b5573a00-afdc-41f8-ba8f-9c9b5597e356
+
