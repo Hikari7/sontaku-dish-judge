@@ -1,17 +1,45 @@
-# dish_judge
+# ⚖️ 忖度AI皿洗い裁判官 (dish_judge)
 
-A new Flutter project.
+夫婦の「今日どっちが皿洗いする？」を、AI裁判官（Gemini）が
+今日の家事とシンクの写真から判決するAndroid向けデモアプリです。
 
-## Getting Started
+## セットアップ
 
-This project is a starting point for a Flutter application.
+1. [Google AI Studio](https://aistudio.google.com/apikey) でGemini APIキーを発行する
+2. `env.example.json` をコピーして `env.json` を作り、キーを書く
 
-A few resources to get you started if this is your first Flutter project:
+   ```sh
+   cp env.example.json env.json
+   ```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+   ```json
+   { "GEMINI_API_KEY": "発行したキー" }
+   ```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+   `env.json` は `.gitignore` 済みなのでコミットされません。
+
+3. Android端末を接続して実行する
+
+   ```sh
+   flutter pub get
+   flutter run --dart-define-from-file=env.json
+   ```
+
+## ⚠️ APIキーについて
+
+このアプリはバックエンドを持たず、アプリから直接Gemini APIを呼び出します。
+APIキーはビルド時にアプリ本体（APK）へ埋め込まれるため、**APKを入手した人はキーを取り出せます**。
+
+- 個人の端末で動かす実験・LTデモ専用です
+- このままの構成でストア公開やAPKの配布をしないでください
+- 公開する場合は、キーを持つバックエンドを経由させる必要があります
+
+## 構成
+
+| ファイル | 役割 |
+| --- | --- |
+| `lib/main.dart` | アプリの起動とテーマ |
+| `lib/judge_page.dart` | 画面（入力フォーム・判決表示） |
+| `lib/gemini_service.dart` | Gemini API呼び出しとレスポンスのパース |
+
+使用モデルは `lib/gemini_service.dart` の `geminiModel` で変更できます。
