@@ -42,4 +42,5 @@ The API key is embedded in the app (APK) at build time, so **anyone who gets the
 | `lib/judge_page.dart` | The screen (form and verdict) |
 | `lib/gemini_service.dart` | Gemini API call and response parsing |
 
-Change the model with `geminiModel` in `lib/gemini_service.dart`.
+The models are listed in `geminiModels` in `lib/gemini_service.dart`.
+When one is too busy (503), the app falls back to the next one.

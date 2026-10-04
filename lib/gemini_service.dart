@@ -9,9 +9,15 @@ import 'package:http/http.dart' as http;
 /// (See README.md for how to set it up.)
 const String geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
 
-/// The Gemini model to use (a stable Flash model).
+/// The Gemini models to use (stable Flash models), best first.
+/// When one is too busy (503), the next one is tried.
 /// https://ai.google.dev/gemini-api/docs/models
-const String geminiModel = 'gemini-3.8-flash';
+const List<String> geminiModels = [
+  'gemini-3.8-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+];
 
 /// The AI judge's verdict.
 class Verdict {
@@ -130,30 +136,35 @@ The attached image is a photo of the sink right now. Please give your verdict.
     },
   };
 
-  final uri = Uri.parse(
-    'https://generativelanguage.googleapis.com/v1beta/models/$geminiModel:generateContent',
-  );
+  // Gemini answers 503 when a model is too busy. That happens often, so on a
+  // 503 move on to the next model in the list.
+  late http.Response response;
+  for (final model in geminiModels) {
+    final uri = Uri.parse(
+      'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
+    );
+    try {
+      response = await http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': geminiApiKey,
+            },
+            body: jsonEncode(requestBody),
+          )
+          .timeout(const Duration(seconds: 60));
+    } on TimeoutException {
+      throw const GeminiException(
+        'The AI judge did not respond (timeout). Please try again.',
+      );
+    } catch (_) {
+      throw const GeminiException(
+        'Could not connect to Gemini. Please check your network connection.',
+      );
+    }
 
-  final http.Response response;
-  try {
-    response = await http
-        .post(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': geminiApiKey,
-          },
-          body: jsonEncode(requestBody),
-        )
-        .timeout(const Duration(seconds: 60));
-  } on TimeoutException {
-    throw const GeminiException(
-      'The AI judge did not respond (timeout). Please try again.',
-    );
-  } catch (_) {
-    throw const GeminiException(
-      'Could not connect to Gemini. Please check your network connection.',
-    );
+    if (response.statusCode != 503) break;
   }
 
   if (response.statusCode != 200) {
@@ -175,6 +186,8 @@ String _describeHttpError(int statusCode) {
       return 'The Gemini API rejected the request ($statusCode). Please check that your API key is correct.';
     case 429:
       return 'The Gemini API usage limit was reached (429). Please wait a moment and try again.';
+    case 503:
+      return 'The AI judge is very busy right now (503). Please wait a moment and try again.';
     default:
       return 'The Gemini API returned an error ($statusCode). Please wait a moment and try again.';
   }
