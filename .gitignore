@@ -47,5 +47,5 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 
-# Gemini APIキー（ローカル専用）
+# Gemini API key (local only)
 /env.json

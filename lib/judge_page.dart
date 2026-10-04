@@ -4,8 +4,15 @@ import 'package:image_picker/image_picker.dart';
 
 import 'gemini_service.dart';
 
-/// 選択できる家事の一覧。
-const List<String> chores = ['料理', '洗濯', '掃除', 'ゴミ出し', '買い物', 'その他'];
+/// The chores that can be selected.
+const List<String> chores = [
+  'Cooking',
+  'Laundry',
+  'Cleaning',
+  'Trash',
+  'Shopping',
+  'Other',
+];
 
 class JudgePage extends StatefulWidget {
   const JudgePage({super.key});
@@ -18,11 +25,11 @@ class _JudgePageState extends State<JudgePage> {
   final _wifeNameController = TextEditingController();
   final _husbandNameController = TextEditingController();
 
-  // チェックされた家事。
+  // The checked chores.
   final Set<String> _wifeChores = {};
   final Set<String> _husbandChores = {};
 
-  // 選択されたシンク画像。
+  // The selected sink image.
   Uint8List? _imageBytes;
   String _imageMimeType = 'image/jpeg';
 
@@ -30,18 +37,18 @@ class _JudgePageState extends State<JudgePage> {
   Verdict? _verdict;
   String? _errorMessage;
 
-  // 名前が未入力のときは「妻」「夫」と呼ぶ。
+  // Fall back to "Wife" and "Husband" when no name is entered.
   String get _wifeName {
     final name = _wifeNameController.text.trim();
-    return name.isEmpty ? '妻' : name;
+    return name.isEmpty ? 'Wife' : name;
   }
 
   String get _husbandName {
     final name = _husbandNameController.text.trim();
-    return name.isEmpty ? '夫' : name;
+    return name.isEmpty ? 'Husband' : name;
   }
 
-  // 画像があり、家事が1つ以上チェックされていれば判定できる。
+  // Judging is possible once there is an image and at least one checked chore.
   bool get _canJudge {
     final hasChores = _wifeChores.isNotEmpty || _husbandChores.isNotEmpty;
     return _imageBytes != null && hasChores && !_isLoading;
@@ -54,7 +61,7 @@ class _JudgePageState extends State<JudgePage> {
     super.dispose();
   }
 
-  /// カメラかギャラリーかを選んでもらい、画像を読み込む。
+  /// Lets the user choose camera or gallery, then loads the image.
   Future<void> _pickImage() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -64,12 +71,12 @@ class _JudgePageState extends State<JudgePage> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_camera),
-              title: const Text('カメラで撮影'),
+              title: const Text('Take a photo'),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('ギャラリーから選ぶ'),
+              title: const Text('Choose from gallery'),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
           ],
@@ -79,14 +86,14 @@ class _JudgePageState extends State<JudgePage> {
     if (source == null) return;
 
     try {
-      // 送信サイズを抑えるため、縮小・圧縮して受け取る。
+      // Shrink and compress the image to keep the upload small.
       final file = await ImagePicker().pickImage(
         source: source,
         maxWidth: 1280,
         maxHeight: 1280,
         imageQuality: 80,
       );
-      if (file == null) return; // キャンセルされた
+      if (file == null) return; // cancelled
 
       final bytes = await file.readAsBytes();
       setState(() {
@@ -98,12 +105,12 @@ class _JudgePageState extends State<JudgePage> {
       final isPermissionError = e.code.contains('access_denied');
       setState(() {
         _errorMessage = isPermissionError
-            ? 'カメラまたは写真へのアクセスが許可されていません。端末の設定で許可してください。'
-            : '画像の選択に失敗しました。もう一度お試しください。';
+            ? 'Access to the camera or photos is not allowed. Please allow it in the device settings.'
+            : 'Failed to pick an image. Please try again.';
       });
     } catch (_) {
       setState(() {
-        _errorMessage = '画像の読み込みに失敗しました。もう一度お試しください。';
+        _errorMessage = 'Failed to load the image. Please try again.';
       });
     }
   }
@@ -116,9 +123,9 @@ class _JudgePageState extends State<JudgePage> {
     return 'image/jpeg';
   }
 
-  /// Geminiに判決を依頼する。
+  /// Asks Gemini for a verdict.
   Future<void> _judge() async {
-    if (!_canJudge) return; // 連打防止
+    if (!_canJudge) return; // ignore repeated taps
 
     FocusScope.of(context).unfocus();
     setState(() {
@@ -132,7 +139,7 @@ class _JudgePageState extends State<JudgePage> {
         imageMimeType: _imageMimeType,
         wifeName: _wifeName,
         husbandName: _husbandName,
-        // 画面の並び順でそろえる。
+        // Keep the same order as on screen.
         wifeChores: chores.where(_wifeChores.contains).toList(),
         husbandChores: chores.where(_husbandChores.contains).toList(),
       );
@@ -143,13 +150,15 @@ class _JudgePageState extends State<JudgePage> {
       setState(() => _errorMessage = e.message);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _errorMessage = '予期しないエラーが発生しました。もう一度お試しください。');
+      setState(
+        () => _errorMessage = 'An unexpected error occurred. Please try again.',
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  /// 判決を閉じて入力画面に戻る。
+  /// Closes the verdict and goes back to the form.
   void _retry() {
     setState(() {
       _verdict = null;
@@ -162,7 +171,10 @@ class _JudgePageState extends State<JudgePage> {
     final verdict = _verdict;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('⚖️ 忖度AI皿洗い裁判官'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('⚖️ Sontaku AI Dish Judge'),
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -173,7 +185,7 @@ class _JudgePageState extends State<JudgePage> {
   }
 
   // ---------------------------------------------------------------------------
-  // 入力フォーム
+  // Form
   // ---------------------------------------------------------------------------
 
   Widget _buildForm() {
@@ -181,18 +193,20 @@ class _JudgePageState extends State<JudgePage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _SectionCard(
-          title: '👥 当事者',
+          title: '👥 The parties',
           child: Row(
             children: [
-              Expanded(child: _buildNameField(_wifeNameController, '👩 名前')),
+              Expanded(child: _buildNameField(_wifeNameController, '👩 Name')),
               const SizedBox(width: 12),
-              Expanded(child: _buildNameField(_husbandNameController, '👨 名前')),
+              Expanded(
+                child: _buildNameField(_husbandNameController, '👨 Name'),
+              ),
             ],
           ),
         ),
-        _SectionCard(title: '🧹 今日の家事', child: _buildChoreTable()),
+        _SectionCard(title: '🧹 Today\'s chores', child: _buildChoreTable()),
         _SectionCard(
-          title: '🍽️ 証拠写真（シンク）',
+          title: '🍽️ Evidence photo (sink)',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -209,7 +223,9 @@ class _JudgePageState extends State<JudgePage> {
               ],
               OutlinedButton(
                 onPressed: _isLoading ? null : _pickImage,
-                child: Text(_imageBytes == null ? '📷 シンクを撮影' : '📷 撮り直す'),
+                child: Text(
+                  _imageBytes == null ? '📷 Photograph the sink' : '📷 Retake',
+                ),
               ),
             ],
           ),
@@ -223,7 +239,7 @@ class _JudgePageState extends State<JudgePage> {
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 12),
-                Text('AIが油汚れと貢献度を忖度中…'),
+                Text('The AI is weighing grease against contributions...'),
               ],
             ),
           )
@@ -232,14 +248,17 @@ class _JudgePageState extends State<JudgePage> {
             onPressed: _canJudge ? _judge : null,
             child: const Padding(
               padding: EdgeInsets.symmetric(vertical: 14),
-              child: Text('⚖️ AI裁判官に判決を仰ぐ', style: TextStyle(fontSize: 18)),
+              child: Text(
+                '⚖️ Ask the AI judge for a verdict',
+                style: TextStyle(fontSize: 18),
+              ),
             ),
           ),
         if (!_canJudge && !_isLoading)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              '家事を1つ以上チェックし、シンクの写真を用意してください',
+              'Check at least one chore and add a photo of the sink',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -252,7 +271,7 @@ class _JudgePageState extends State<JudgePage> {
     return TextField(
       controller: controller,
       enabled: !_isLoading,
-      // 家事の表の見出しに名前を反映するため、入力のたびに再描画する。
+      // Rebuild on every change so the chore table header shows the names.
       onChanged: (_) => setState(() {}),
       decoration: InputDecoration(
         labelText: label,
@@ -262,7 +281,7 @@ class _JudgePageState extends State<JudgePage> {
     );
   }
 
-  /// 家事ごとに、妻・夫それぞれのチェックボックスを並べた表。
+  /// A table with a checkbox for the wife and the husband on each chore.
   Widget _buildChoreTable() {
     const columnWidth = 80.0;
 
@@ -321,7 +340,7 @@ class _JudgePageState extends State<JudgePage> {
   }
 
   // ---------------------------------------------------------------------------
-  // 判決
+  // Verdict
   // ---------------------------------------------------------------------------
 
   Widget _buildVerdict(Verdict verdict) {
@@ -339,9 +358,9 @@ class _JudgePageState extends State<JudgePage> {
             padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
             child: Column(
               children: [
-                Text('⚖️ 判決', style: textTheme.headlineLarge),
+                Text('⚖️ Verdict', style: textTheme.headlineLarge),
                 const SizedBox(height: 16),
-                Text('本日の皿洗い担当は……', style: textTheme.titleMedium),
+                Text('Today\'s dishes go to...', style: textTheme.titleMedium),
                 const SizedBox(height: 12),
                 Text(
                   '$loserEmoji $loserName',
@@ -356,7 +375,7 @@ class _JudgePageState extends State<JudgePage> {
           ),
         ),
         _SectionCard(
-          title: '🧽 シンク汚染度',
+          title: '🧽 Sink contamination',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -375,17 +394,20 @@ class _JudgePageState extends State<JudgePage> {
           ),
         ),
         _SectionCard(
-          title: '📜 判決理由',
+          title: '📜 Reason for the verdict',
           child: Text(verdict.reason, style: textTheme.bodyLarge),
         ),
         const SizedBox(height: 8),
-        OutlinedButton(onPressed: _retry, child: const Text('🔨 もう一度裁判する')),
+        OutlinedButton(
+          onPressed: _retry,
+          child: const Text('🔨 Hold another trial'),
+        ),
       ],
     );
   }
 }
 
-/// 見出し付きのカード。
+/// A card with a heading.
 class _SectionCard extends StatelessWidget {
   const _SectionCard({required this.title, required this.child});
 
@@ -411,7 +433,7 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-/// エラーメッセージの表示。
+/// Shows an error message.
 class _ErrorBox extends StatelessWidget {
   const _ErrorBox({required this.message});
 

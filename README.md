@@ -1,45 +1,45 @@
-# ⚖️ 忖度AI皿洗い裁判官 (dish_judge)
+# ⚖️ Sontaku AI Dish Judge (dish_judge)
 
-夫婦の「今日どっちが皿洗いする？」を、AI裁判官（Gemini）が
-今日の家事とシンクの写真から判決するAndroid向けデモアプリです。
+An Android demo app where an AI judge (Gemini) settles a couple's
+"who does the dishes today?" from today's chores and a photo of the sink.
 
-## セットアップ
+## Setup
 
-1. [Google AI Studio](https://aistudio.google.com/apikey) でGemini APIキーを発行する
-2. `env.example.json` をコピーして `env.json` を作り、キーを書く
+1. Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey)
+2. Copy `env.example.json` to `env.json` and put the key in it
 
    ```sh
    cp env.example.json env.json
    ```
 
    ```json
-   { "GEMINI_API_KEY": "発行したキー" }
+   { "GEMINI_API_KEY": "your key" }
    ```
 
-   `env.json` は `.gitignore` 済みなのでコミットされません。
+   `env.json` is listed in `.gitignore`, so it is not committed.
 
-3. Android端末を接続して実行する
+3. Connect an Android device and run
 
    ```sh
    flutter pub get
    flutter run --dart-define-from-file=env.json
    ```
 
-## ⚠️ APIキーについて
+## ⚠️ About the API key
 
-このアプリはバックエンドを持たず、アプリから直接Gemini APIを呼び出します。
-APIキーはビルド時にアプリ本体（APK）へ埋め込まれるため、**APKを入手した人はキーを取り出せます**。
+This app has no backend and calls the Gemini API directly from the app.
+The API key is embedded in the app (APK) at build time, so **anyone who gets the APK can extract the key**.
 
-- 個人の端末で動かす実験・LTデモ専用です
-- このままの構成でストア公開やAPKの配布をしないでください
-- 公開する場合は、キーを持つバックエンドを経由させる必要があります
+- It is only meant for experiments and lightning-talk demos on your own device
+- Do not publish it to a store or distribute the APK as it is
+- To publish it, route the calls through a backend that holds the key
 
-## 構成
+## Structure
 
-| ファイル | 役割 |
+| File | Role |
 | --- | --- |
-| `lib/main.dart` | アプリの起動とテーマ |
-| `lib/judge_page.dart` | 画面（入力フォーム・判決表示） |
-| `lib/gemini_service.dart` | Gemini API呼び出しとレスポンスのパース |
+| `lib/main.dart` | App startup and theme |
+| `lib/judge_page.dart` | The screen (form and verdict) |
+| `lib/gemini_service.dart` | Gemini API call and response parsing |
 
-使用モデルは `lib/gemini_service.dart` の `geminiModel` で変更できます。
+Change the model with `geminiModel` in `lib/gemini_service.dart`.

@@ -1,8 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Gemini APIへの通信に必要（releaseビルドでも動くようにここで宣言） -->
+    <!-- Needed to call the Gemini API (declared here so release builds work too) -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="皿洗い裁判官"
+        android:label="Dish Judge"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

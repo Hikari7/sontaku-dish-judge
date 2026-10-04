@@ -4,14 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dish_judge/main.dart';
 
 void main() {
-  testWidgets('初期状態では判定ボタンが押せない', (WidgetTester tester) async {
+  testWidgets('the judge button is disabled initially', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(const MyApp());
 
-    expect(find.text('⚖️ 忖度AI皿洗い裁判官'), findsOneWidget);
-    expect(find.text('📷 シンクを撮影'), findsOneWidget);
+    expect(find.text('⚖️ Sontaku AI Dish Judge'), findsOneWidget);
+    expect(find.text('📷 Photograph the sink'), findsOneWidget);
 
     final judgeButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, '⚖️ AI裁判官に判決を仰ぐ'),
+      find.widgetWithText(FilledButton, '⚖️ Ask the AI judge for a verdict'),
     );
     expect(judgeButton.onPressed, isNull);
   });

@@ -4,15 +4,16 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-/// Gemini APIキー。ソースには書かず、実行時に --dart-define-from-file で渡す。
-/// （設定方法は README.md を参照）
+/// Gemini API key. Not written in the source; passed at run time with
+/// --dart-define-from-file.
+/// (See README.md for how to set it up.)
 const String geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
 
-/// 使用するGeminiモデル（Flash系の安定版）。
+/// The Gemini model to use (a stable Flash model).
 /// https://ai.google.dev/gemini-api/docs/models
 const String geminiModel = 'gemini-3.8-flash';
 
-/// AI裁判官の判決。
+/// The AI judge's verdict.
 class Verdict {
   const Verdict({
     required this.loserIsWife,
@@ -20,17 +21,17 @@ class Verdict {
     required this.reason,
   });
 
-  /// true なら妻、false なら夫が今日の皿洗い担当。
+  /// true if the wife does the dishes today, false if the husband does.
   final bool loserIsWife;
 
-  /// 皿洗い難易度（1〜10）。
+  /// Dishwashing difficulty (1-10).
   final int dishDifficulty;
 
-  /// 判決理由。
+  /// The reason for the verdict.
   final String reason;
 }
 
-/// 画面にそのまま表示できるメッセージを持つエラー。
+/// An error whose message can be shown on screen as is.
 class GeminiException implements Exception {
   const GeminiException(this.message);
 
@@ -41,30 +42,30 @@ class GeminiException implements Exception {
 }
 
 const String _systemInstruction = '''
-あなたは「忖度AI皿洗い裁判官」です。
+You are the "Sontaku AI Dish Judge".
 
-非常に公平で厳格な家庭内裁判官として、シンクの写真と夫婦それぞれの今日の家事貢献度を分析し、本日の皿洗い担当者を決定してください。
-ただし、文章は少しコミカルにしてください。
+As a very fair and strict household judge, analyze the photo of the sink and how much each spouse contributed to today's chores, and decide who does the dishes today.
+However, make your writing a little comical.
 
-【シンク分析】
-画像から以下を判断し、「皿洗い難易度」(dishDifficulty) を1〜10の整数で評価してください。
-- 食器の量
-- フライパンや鍋などの大型調理器具
-- 油汚れの多さ
-- 洗うのが大変そうか
-- シンク全体の汚さ
+[Sink analysis]
+Judge the following from the image and rate the "dishwashing difficulty" (dishDifficulty) as an integer from 1 to 10.
+- The amount of dishes
+- Large cookware such as frying pans and pots
+- How much grease there is
+- Whether it looks hard to wash
+- How dirty the sink is overall
 
-【家事貢献度】
-夫婦それぞれが今日行った家事を比較してください。
-単純に家事の数だけではなく、料理など負担の大きい家事はある程度考慮してください。
+[Chore contribution]
+Compare the chores each spouse did today.
+Do not just count the chores; give some extra weight to demanding ones such as cooking.
 
-【判決】
-今日の皿洗い担当を必ず1人決定し、verdict に "wife"（妻）または "husband"（夫）で答えてください。
-reason には判決理由を、2人の名前を使って日本語で2〜4文で書いてください。
+[Verdict]
+Always pick exactly one person to do the dishes today, and answer in verdict with "wife" or "husband".
+In reason, write the reason for the verdict in 2 to 4 English sentences, using both names.
 ''';
 
-/// シンク画像と今日の家事をGeminiに送り、判決を受け取る。
-/// 失敗した場合は [GeminiException] を投げる。
+/// Sends the sink image and today's chores to Gemini and returns the verdict.
+/// Throws a [GeminiException] on failure.
 Future<Verdict> requestVerdict({
   required Uint8List imageBytes,
   required String imageMimeType,
@@ -75,20 +76,20 @@ Future<Verdict> requestVerdict({
 }) async {
   if (geminiApiKey.isEmpty) {
     throw const GeminiException(
-      'Gemini APIキーが設定されていません。\n'
-      'README.md の手順で env.json を用意して起動してください。',
+      'The Gemini API key is not set.\n'
+      'Create env.json as described in README.md and run again.',
     );
   }
 
   final userText =
       '''
-妻（wife）の名前: $wifeName
-$wifeName の今日の家事: ${_describeChores(wifeChores)}
+Wife's name: $wifeName
+$wifeName's chores today: ${_describeChores(wifeChores)}
 
-夫（husband）の名前: $husbandName
-$husbandName の今日の家事: ${_describeChores(husbandChores)}
+Husband's name: $husbandName
+$husbandName's chores today: ${_describeChores(husbandChores)}
 
-添付の画像は現在のシンクの写真です。判決をお願いします。
+The attached image is a photo of the sink right now. Please give your verdict.
 ''';
 
   final requestBody = {
@@ -111,7 +112,7 @@ $husbandName の今日の家事: ${_describeChores(husbandChores)}
         ],
       },
     ],
-    // JSONで返すように指定し、形（スキーマ）も決めておく。
+    // Ask for JSON and fix its shape (schema).
     'generationConfig': {
       'responseMimeType': 'application/json',
       'responseSchema': {
@@ -146,9 +147,13 @@ $husbandName の今日の家事: ${_describeChores(husbandChores)}
         )
         .timeout(const Duration(seconds: 60));
   } on TimeoutException {
-    throw const GeminiException('AI裁判官の応答がありません（タイムアウト）。もう一度お試しください。');
+    throw const GeminiException(
+      'The AI judge did not respond (timeout). Please try again.',
+    );
   } catch (_) {
-    throw const GeminiException('Geminiに接続できませんでした。ネットワーク接続を確認してください。');
+    throw const GeminiException(
+      'Could not connect to Gemini. Please check your network connection.',
+    );
   }
 
   if (response.statusCode != 200) {
@@ -159,7 +164,7 @@ $husbandName の今日の家事: ${_describeChores(husbandChores)}
 }
 
 String _describeChores(List<String> chores) {
-  return chores.isEmpty ? 'なし' : chores.join('、');
+  return chores.isEmpty ? 'none' : chores.join(', ');
 }
 
 String _describeHttpError(int statusCode) {
@@ -167,26 +172,28 @@ String _describeHttpError(int statusCode) {
     case 400:
     case 401:
     case 403:
-      return 'Gemini APIに拒否されました（$statusCode）。APIキーが正しいか確認してください。';
+      return 'The Gemini API rejected the request ($statusCode). Please check that your API key is correct.';
     case 429:
-      return 'Gemini APIの利用上限に達しました（429）。少し待ってからお試しください。';
+      return 'The Gemini API usage limit was reached (429). Please wait a moment and try again.';
     default:
-      return 'Gemini APIでエラーが発生しました（$statusCode）。少し待ってからお試しください。';
+      return 'The Gemini API returned an error ($statusCode). Please wait a moment and try again.';
   }
 }
 
-/// Geminiのレスポンス本文から判決を取り出す。
-/// 想定外の形だった場合は [GeminiException] を投げる（クラッシュさせない）。
+/// Extracts the verdict from the Gemini response body.
+/// Throws a [GeminiException] if the shape is unexpected (never crashes).
 Verdict _parseVerdict(String responseBody) {
-  const unexpected = GeminiException('AI裁判官から想定外の返答が届きました。もう一度お試しください。');
+  const unexpected = GeminiException(
+    'The AI judge sent an unexpected reply. Please try again.',
+  );
 
   try {
-    // レスポンス全体: { "candidates": [ { "content": { "parts": [ { "text": "..." } ] } } ] }
+    // Whole response: { "candidates": [ { "content": { "parts": [ { "text": "..." } ] } } ] }
     final body = jsonDecode(responseBody);
     final parts = body['candidates'][0]['content']['parts'] as List;
     final text = parts.map((part) => part['text'] ?? '').join();
 
-    // text の中身が、こちらで指定した形のJSON文字列になっている。
+    // text holds a JSON string in the shape we asked for.
     final json = jsonDecode(text);
     final difficulty = json['dishDifficulty'];
     final verdict = json['verdict'];
@@ -203,7 +210,7 @@ Verdict _parseVerdict(String responseBody) {
   } on GeminiException {
     rethrow;
   } catch (_) {
-    // JSONパース失敗や、フィールドが無い・型が違う場合はすべてここに来る。
+    // JSON parse failures and missing or wrongly typed fields all end up here.
     throw unexpected;
   }
 }

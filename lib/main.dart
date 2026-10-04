@@ -12,10 +12,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '忖度AI皿洗い裁判官',
+      title: 'Sontaku AI Dish Judge',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // 法廷の木目をイメージした茶色ベースの配色。
+        // Brown colors inspired by courtroom wood.
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF8D5524)),
         scaffoldBackgroundColor: const Color(0xFFFFF8EE),
       ),
