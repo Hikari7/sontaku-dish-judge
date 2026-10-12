@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'gemini_service.dart';
+import 'stats_page.dart';
+import 'verdict_repository.dart';
 import 'widgets/section_card.dart';
 import 'widgets/verdict_view.dart';
 
@@ -38,6 +40,9 @@ class _JudgePageState extends State<JudgePage> {
   bool _isLoading = false;
   Verdict? _verdict;
   String? _errorMessage;
+
+  // Whether the verdict on screen was already added to the history.
+  bool _isRecorded = false;
 
   // Fall back to "Wife" and "Husband" when no name is entered.
   String get _wifeName {
@@ -146,7 +151,10 @@ class _JudgePageState extends State<JudgePage> {
         husbandChores: chores.where(_husbandChores.contains).toList(),
       );
       if (!mounted) return;
-      setState(() => _verdict = verdict);
+      setState(() {
+        _verdict = verdict;
+        _isRecorded = false;
+      });
     } on GeminiException catch (e) {
       if (!mounted) return;
       setState(() => _errorMessage = e.message);
@@ -157,6 +165,30 @@ class _JudgePageState extends State<JudgePage> {
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Adds the verdict on screen to the history.
+  Future<void> _record() async {
+    final verdict = _verdict;
+    if (verdict == null || _isRecorded) return; // ignore repeated taps
+
+    // Set before saving so a second tap cannot record it twice.
+    setState(() => _isRecorded = true);
+    try {
+      await verdictRepository.save(
+        verdict: verdict,
+        wifeName: _wifeName,
+        husbandName: _husbandName,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isRecorded = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to record the verdict. Please try again.'),
+        ),
+      );
     }
   }
 
@@ -176,6 +208,16 @@ class _JudgePageState extends State<JudgePage> {
       appBar: AppBar(
         title: const Text('⚖️ Sontaku AI Dish Judge'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            tooltip: 'Dish record',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const StatsPage()),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -186,6 +228,8 @@ class _JudgePageState extends State<JudgePage> {
                   verdict: verdict,
                   wifeName: _wifeName,
                   husbandName: _husbandName,
+                  isRecorded: _isRecorded,
+                  onRecord: _record,
                   onRetry: _retry,
                 ),
         ),

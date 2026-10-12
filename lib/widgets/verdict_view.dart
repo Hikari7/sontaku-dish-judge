@@ -10,12 +10,20 @@ class VerdictView extends StatelessWidget {
     required this.verdict,
     required this.wifeName,
     required this.husbandName,
+    required this.isRecorded,
+    required this.onRecord,
     required this.onRetry,
   });
 
   final Verdict verdict;
   final String wifeName;
   final String husbandName;
+
+  /// Whether this verdict was already added to the history.
+  final bool isRecorded;
+
+  /// Called when the user accepts the verdict and wants it recorded.
+  final VoidCallback onRecord;
 
   /// Called when the user asks for another trial.
   final VoidCallback onRetry;
@@ -74,6 +82,11 @@ class VerdictView extends StatelessWidget {
         SectionCard(
           title: '📜 Reason for the verdict',
           child: Text(verdict.reason, style: textTheme.bodyLarge),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: isRecorded ? null : onRecord,
+          child: Text(isRecorded ? '✅ Recorded' : '📝 Record this verdict'),
         ),
         const SizedBox(height: 8),
         OutlinedButton(
