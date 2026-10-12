@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'gemini_service.dart';
+import 'widgets/section_card.dart';
+import 'widgets/verdict_view.dart';
 
 /// The chores that can be selected.
 const List<String> chores = [
@@ -178,7 +180,14 @@ class _JudgePageState extends State<JudgePage> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          child: verdict == null ? _buildForm() : _buildVerdict(verdict),
+          child: verdict == null
+              ? _buildForm()
+              : VerdictView(
+                  verdict: verdict,
+                  wifeName: _wifeName,
+                  husbandName: _husbandName,
+                  onRetry: _retry,
+                ),
         ),
       ),
     );
@@ -192,7 +201,7 @@ class _JudgePageState extends State<JudgePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionCard(
+        SectionCard(
           title: '👥 The parties',
           child: Row(
             children: [
@@ -204,8 +213,8 @@ class _JudgePageState extends State<JudgePage> {
             ],
           ),
         ),
-        _SectionCard(title: '🧹 Today\'s chores', child: _buildChoreTable()),
-        _SectionCard(
+        SectionCard(title: '🧹 Today\'s chores', child: _buildChoreTable()),
+        SectionCard(
           title: '🍽️ Evidence photo (sink)',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -336,99 +345,6 @@ class _JudgePageState extends State<JudgePage> {
             ],
           ),
       ],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Verdict
-  // ---------------------------------------------------------------------------
-
-  Widget _buildVerdict(Verdict verdict) {
-    final textTheme = Theme.of(context).textTheme;
-    final colors = Theme.of(context).colorScheme;
-    final loserName = verdict.loserIsWife ? _wifeName : _husbandName;
-    final loserEmoji = verdict.loserIsWife ? '👩' : '👨';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Card(
-          color: colors.primaryContainer,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-            child: Column(
-              children: [
-                Text('⚖️ Verdict', style: textTheme.headlineLarge),
-                const SizedBox(height: 16),
-                Text('Today\'s dishes go to...', style: textTheme.titleMedium),
-                const SizedBox(height: 12),
-                Text(
-                  '$loserEmoji $loserName',
-                  textAlign: TextAlign.center,
-                  style: textTheme.displayMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colors.onPrimaryContainer,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        _SectionCard(
-          title: '🧽 Sink contamination',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '${verdict.dishDifficulty} / 10',
-                textAlign: TextAlign.center,
-                style: textTheme.displaySmall,
-              ),
-              const SizedBox(height: 8),
-              LinearProgressIndicator(
-                value: verdict.dishDifficulty / 10,
-                minHeight: 10,
-                borderRadius: BorderRadius.circular(5),
-              ),
-            ],
-          ),
-        ),
-        _SectionCard(
-          title: '📜 Reason for the verdict',
-          child: Text(verdict.reason, style: textTheme.bodyLarge),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton(
-          onPressed: _retry,
-          child: const Text('🔨 Hold another trial'),
-        ),
-      ],
-    );
-  }
-}
-
-/// A card with a heading.
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            child,
-          ],
-        ),
-      ),
     );
   }
 }
