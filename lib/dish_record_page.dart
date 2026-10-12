@@ -4,14 +4,14 @@ import 'verdict_repository.dart';
 import 'widgets/section_card.dart';
 
 /// Shows how many times each spouse did the dishes, and the history.
-class StatsPage extends StatefulWidget {
-  const StatsPage({super.key});
+class DishRecordPage extends StatefulWidget {
+  const DishRecordPage({super.key});
 
   @override
-  State<StatsPage> createState() => _StatsPageState();
+  State<DishRecordPage> createState() => _DishRecordPageState();
 }
 
-class _StatsPageState extends State<StatsPage> {
+class _DishRecordPageState extends State<DishRecordPage> {
   late final Future<List<VerdictRecord>> _records = verdictRepository
       .fetchAll();
 
@@ -37,14 +37,14 @@ class _StatsPageState extends State<StatsPage> {
                 child: Text('No verdicts have been recorded yet.'),
               );
             }
-            return _buildStats(records);
+            return _buildRecord(records);
           },
         ),
       ),
     );
   }
 
-  Widget _buildStats(List<VerdictRecord> records) {
+  Widget _buildRecord(List<VerdictRecord> records) {
     final wifeCount = records.where((record) => record.loserIsWife).length;
     final husbandCount = records.length - wifeCount;
     // Names can change between verdicts, so show the latest ones.

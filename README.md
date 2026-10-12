@@ -41,7 +41,7 @@ The API key is embedded in the app (APK) at build time, so **anyone who gets the
 | `lib/main.dart` | App startup and theme |
 | `lib/judge_page.dart` | The screen (form and verdict) |
 | `lib/gemini_service.dart` | Gemini API call and response parsing |
-| `lib/stats_page.dart` | The dish record screen (counts and history) |
+| `lib/dish_record_page.dart` | The dish record screen (counts and history) |
 | `lib/verdict_repository.dart` | Saving and loading the verdict history (SQLite) |
 
 The models are listed in `geminiModels` in `lib/gemini_service.dart`.

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'dish_record_page.dart';
 import 'gemini_service.dart';
-import 'stats_page.dart';
 import 'verdict_repository.dart';
 import 'widgets/section_card.dart';
 import 'widgets/verdict_view.dart';
@@ -214,7 +214,7 @@ class _JudgePageState extends State<JudgePage> {
             tooltip: 'Dish record',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const StatsPage()),
+              MaterialPageRoute(builder: (context) => const DishRecordPage()),
             ),
           ),
         ],
