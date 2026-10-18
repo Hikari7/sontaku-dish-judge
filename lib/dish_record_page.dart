@@ -12,35 +12,47 @@ class DishRecordPage extends StatefulWidget {
 }
 
 class _DishRecordPageState extends State<DishRecordPage> {
-  late final Future<List<VerdictRecord>> _records = verdictRepository
-      .fetchAll();
+  /// Held in the state rather than a FutureBuilder, because a swiped-away
+  /// record has to leave the list in the same frame it is dismissed.
+  List<VerdictRecord>? _records;
+  bool _loadFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final records = await verdictRepository.fetchAll();
+      if (!mounted) return;
+      setState(() => _records = records);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadFailed = true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final records = _records;
+    final Widget body;
+    if (_loadFailed) {
+      body = const Center(
+        child: Text('Failed to load the record. Please try again.'),
+      );
+    } else if (records == null) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (records.isEmpty) {
+      body = const Center(child: Text('No verdicts have been recorded yet.'));
+    } else {
+      body = _buildRecord(records);
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('📊 Dish record'), centerTitle: true),
-      body: SafeArea(
-        child: FutureBuilder<List<VerdictRecord>>(
-          future: _records,
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return const Center(
-                child: Text('Failed to load the record. Please try again.'),
-              );
-            }
-            final records = snapshot.data;
-            if (records == null) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (records.isEmpty) {
-              return const Center(
-                child: Text('No verdicts have been recorded yet.'),
-              );
-            }
-            return _buildRecord(records);
-          },
-        ),
-      ),
+      body: SafeArea(child: body),
     );
   }
 
@@ -67,25 +79,90 @@ class _DishRecordPageState extends State<DishRecordPage> {
         SectionCard(
           title: '📜 History',
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final record in records)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Text(
-                    record.loserIsWife ? '👩' : '👨',
-                    style: const TextStyle(fontSize: 28),
-                  ),
-                  title: Text(
-                    record.loserIsWife ? record.wifeName : record.husbandName,
-                  ),
-                  subtitle: Text(_formatDate(record.judgedAt)),
-                  trailing: Text('🧽 ${record.dishDifficulty} / 10'),
+              Text(
+                'Swipe a verdict left to delete it',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
+              ),
+              for (final record in records) _buildHistoryItem(record),
             ],
           ),
         ),
       ],
     );
+  }
+
+  /// A history row that is deleted by swiping it to the left.
+  Widget _buildHistoryItem(VerdictRecord record) {
+    final colorScheme = Theme.of(context).colorScheme;
+    // Dismissible slides the row without clipping it, so without this the
+    // part pushed out to the left stays visible beside the delete background.
+    return ClipRect(
+      child: Dismissible(
+        key: ValueKey(record.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 16),
+          color: colorScheme.errorContainer,
+          child: Icon(Icons.delete, color: colorScheme.onErrorContainer),
+        ),
+        confirmDismiss: (_) => _confirmAndDelete(record),
+        onDismissed: (_) => setState(() => _records!.remove(record)),
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Text(
+            record.loserIsWife ? '👩' : '👨',
+            style: const TextStyle(fontSize: 28),
+          ),
+          title: Text(
+            record.loserIsWife ? record.wifeName : record.husbandName,
+          ),
+          subtitle: Text(_formatDate(record.judgedAt)),
+          trailing: Text('🧽 ${record.dishDifficulty} / 10'),
+        ),
+      ),
+    );
+  }
+
+  /// Asks before deleting [record], then removes it from the database.
+  Future<bool> _confirmAndDelete(VerdictRecord record) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this verdict?'),
+        content: Text(
+          '${_formatDate(record.judgedAt)}  '
+          '${record.loserIsWife ? record.wifeName : record.husbandName}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return false;
+
+    try {
+      await verdictRepository.delete(record.id);
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to delete the verdict.')),
+        );
+      }
+      return false;
+    }
   }
 
   Widget _buildCount(String name, int count) {

@@ -95,6 +95,12 @@ class VerdictRepository {
         ),
     ];
   }
+
+  /// Removes the record with [id] from the history.
+  Future<void> delete(String id) async {
+    final db = await _open();
+    await db.delete(_table, where: 'id = ?', whereArgs: [id]);
+  }
 }
 
 /// The repository shared by the whole app.
