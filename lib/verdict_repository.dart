@@ -12,8 +12,6 @@ class VerdictRecord {
     required this.loserIsWife,
     required this.dishDifficulty,
     required this.reason,
-    required this.wifeName,
-    required this.husbandName,
   });
 
   /// A UUID, so records made on different devices never clash.
@@ -26,18 +24,28 @@ class VerdictRecord {
 
   final int dishDifficulty;
   final String reason;
-
-  /// The names as they were entered at the time of the verdict.
-  final String wifeName;
-  final String husbandName;
 }
 
-/// Stores the verdict history.
+/// The names of the couple, kept once for the whole history.
+class CoupleNames {
+  const CoupleNames({this.wife = '', this.husband = ''});
+
+  /// The names as entered, empty when none was entered.
+  final String wife;
+  final String husband;
+
+  // Fall back to "Wife" and "Husband" when no name is entered.
+  String get wifeLabel => wife.isEmpty ? 'Wife' : wife;
+  String get husbandLabel => husband.isEmpty ? 'Husband' : husband;
+}
+
+/// Stores the verdict history and the couple's names.
 ///
 /// The screens only talk to this class, so the storage (SQLite on the device
 /// for now) can be replaced later without touching them.
 class VerdictRepository {
-  static const _table = 'verdicts';
+  static const _verdicts = 'verdicts';
+  static const _settings = 'settings';
 
   Database? _database;
 
@@ -45,43 +53,44 @@ class VerdictRepository {
     return _database ??= await openDatabase(
       p.join(await getDatabasesPath(), 'dish_judge.db'),
       version: 1,
-      onCreate: (db, version) => db.execute('''
-        CREATE TABLE $_table (
-          id TEXT PRIMARY KEY,
-          judged_at TEXT NOT NULL,
-          loser TEXT NOT NULL,
-          dish_difficulty INTEGER NOT NULL,
-          reason TEXT NOT NULL,
-          wife_name TEXT NOT NULL,
-          husband_name TEXT NOT NULL
-        )
-      '''),
+      onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE $_verdicts (
+            id TEXT PRIMARY KEY,
+            judged_at TEXT NOT NULL,
+            loser TEXT NOT NULL,
+            dish_difficulty INTEGER NOT NULL,
+            reason TEXT NOT NULL
+          )
+        ''');
+        // One row per setting, such as `('wife_name', 'Hanako')`.
+        await db.execute('''
+          CREATE TABLE $_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+          )
+        ''');
+      },
     );
   }
 
   /// Adds [verdict] to the history.
-  Future<void> save({
-    required Verdict verdict,
-    required String wifeName,
-    required String husbandName,
-  }) async {
+  Future<void> save(Verdict verdict) async {
     final db = await _open();
-    await db.insert(_table, {
+    await db.insert(_verdicts, {
       'id': const Uuid().v4(),
       // Stored in UTC so the order stays right across time zones.
       'judged_at': DateTime.now().toUtc().toIso8601String(),
       'loser': verdict.loserIsWife ? 'wife' : 'husband',
       'dish_difficulty': verdict.dishDifficulty,
       'reason': verdict.reason,
-      'wife_name': wifeName,
-      'husband_name': husbandName,
     });
   }
 
   /// Returns the whole history, newest first.
   Future<List<VerdictRecord>> fetchAll() async {
     final db = await _open();
-    final rows = await db.query(_table, orderBy: 'judged_at DESC');
+    final rows = await db.query(_verdicts, orderBy: 'judged_at DESC');
     return [
       for (final row in rows)
         VerdictRecord(
@@ -90,8 +99,6 @@ class VerdictRepository {
           loserIsWife: row['loser'] == 'wife',
           dishDifficulty: row['dish_difficulty'] as int,
           reason: row['reason'] as String,
-          wifeName: row['wife_name'] as String,
-          husbandName: row['husband_name'] as String,
         ),
     ];
   }
@@ -99,7 +106,43 @@ class VerdictRepository {
   /// Removes the record with [id] from the history.
   Future<void> delete(String id) async {
     final db = await _open();
-    await db.delete(_table, where: 'id = ?', whereArgs: [id]);
+    await db.delete(_verdicts, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Returns the saved names, empty ones if none were saved yet.
+  Future<CoupleNames> fetchNames() async {
+    final db = await _open();
+    final rows = await db.query(
+      _settings,
+      where: 'key IN (?, ?)',
+      whereArgs: ['wife_name', 'husband_name'],
+    );
+    final values = {
+      for (final row in rows) row['key'] as String: row['value'] as String,
+    };
+    return CoupleNames(
+      wife: values['wife_name'] ?? '',
+      husband: values['husband_name'] ?? '',
+    );
+  }
+
+  /// Saves [names], replacing the ones saved before.
+  Future<void> saveNames(CoupleNames names) async {
+    final db = await _open();
+    // Both rows change together or not at all.
+    await db.transaction((txn) async {
+      for (final (key, value) in [
+        ('wife_name', names.wife),
+        ('husband_name', names.husband),
+      ]) {
+        // `INSERT OR REPLACE`: adds the row, or overwrites the one with the
+        // same primary key.
+        await txn.insert(_settings, {
+          'key': key,
+          'value': value,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    });
   }
 }
 

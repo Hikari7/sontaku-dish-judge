@@ -15,6 +15,7 @@ class _DishRecordPageState extends State<DishRecordPage> {
   /// Held in the state rather than a FutureBuilder, because a swiped-away
   /// record has to leave the list in the same frame it is dismissed.
   List<VerdictRecord>? _records;
+  CoupleNames _names = const CoupleNames();
   bool _loadFailed = false;
 
   @override
@@ -25,9 +26,15 @@ class _DishRecordPageState extends State<DishRecordPage> {
 
   Future<void> _load() async {
     try {
-      final records = await verdictRepository.fetchAll();
+      final (records, names) = await (
+        verdictRepository.fetchAll(),
+        verdictRepository.fetchNames(),
+      ).wait;
       if (!mounted) return;
-      setState(() => _records = records);
+      setState(() {
+        _records = records;
+        _names = names;
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() => _loadFailed = true);
@@ -59,8 +66,6 @@ class _DishRecordPageState extends State<DishRecordPage> {
   Widget _buildRecord(List<VerdictRecord> records) {
     final wifeCount = records.where((record) => record.loserIsWife).length;
     final husbandCount = records.length - wifeCount;
-    // Names can change between verdicts, so show the latest ones.
-    final latest = records.first;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -69,9 +74,9 @@ class _DishRecordPageState extends State<DishRecordPage> {
           title: '🧽 Times on dish duty',
           child: Row(
             children: [
-              Expanded(child: _buildCount('👩 ${latest.wifeName}', wifeCount)),
+              Expanded(child: _buildCount('👩 ${_names.wifeLabel}', wifeCount)),
               Expanded(
-                child: _buildCount('👨 ${latest.husbandName}', husbandCount),
+                child: _buildCount('👨 ${_names.husbandLabel}', husbandCount),
               ),
             ],
           ),
@@ -94,6 +99,11 @@ class _DishRecordPageState extends State<DishRecordPage> {
       ],
     );
   }
+
+  /// Records only say whether the wife or the husband lost, so the name is
+  /// always the current one.
+  String _loserName(VerdictRecord record) =>
+      record.loserIsWife ? _names.wifeLabel : _names.husbandLabel;
 
   /// A history row that is deleted by swiping it to the left.
   Widget _buildHistoryItem(VerdictRecord record) {
@@ -118,9 +128,7 @@ class _DishRecordPageState extends State<DishRecordPage> {
             record.loserIsWife ? '👩' : '👨',
             style: const TextStyle(fontSize: 28),
           ),
-          title: Text(
-            record.loserIsWife ? record.wifeName : record.husbandName,
-          ),
+          title: Text(_loserName(record)),
           subtitle: Text(_formatDate(record.judgedAt)),
           trailing: Text('🧽 ${record.dishDifficulty} / 10'),
         ),
@@ -134,10 +142,7 @@ class _DishRecordPageState extends State<DishRecordPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete this verdict?'),
-        content: Text(
-          '${_formatDate(record.judgedAt)}  '
-          '${record.loserIsWife ? record.wifeName : record.husbandName}',
-        ),
+        content: Text('${_formatDate(record.judgedAt)}  ${_loserName(record)}'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

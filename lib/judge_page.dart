@@ -44,21 +44,44 @@ class _JudgePageState extends State<JudgePage> {
   // Whether the verdict on screen was already added to the history.
   bool _isRecorded = false;
 
-  // Fall back to "Wife" and "Husband" when no name is entered.
-  String get _wifeName {
-    final name = _wifeNameController.text.trim();
-    return name.isEmpty ? 'Wife' : name;
-  }
+  CoupleNames get _names => CoupleNames(
+    wife: _wifeNameController.text.trim(),
+    husband: _husbandNameController.text.trim(),
+  );
 
-  String get _husbandName {
-    final name = _husbandNameController.text.trim();
-    return name.isEmpty ? 'Husband' : name;
-  }
+  String get _wifeName => _names.wifeLabel;
+  String get _husbandName => _names.husbandLabel;
 
   // Judging is possible once there is an image and at least one checked chore.
   bool get _canJudge {
     final hasChores = _wifeChores.isNotEmpty || _husbandChores.isNotEmpty;
     return _imageBytes != null && hasChores && !_isLoading;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNames();
+  }
+
+  /// Fills in the names saved last time.
+  Future<void> _loadNames() async {
+    final CoupleNames names;
+    try {
+      names = await verdictRepository.fetchNames();
+    } catch (_) {
+      return; // the fields simply stay empty
+    }
+    if (!mounted) return;
+    setState(() {
+      // Keep anything the user typed while the names were loading.
+      if (_wifeNameController.text.isEmpty) {
+        _wifeNameController.text = names.wife;
+      }
+      if (_husbandNameController.text.isEmpty) {
+        _husbandNameController.text = names.husband;
+      }
+    });
   }
 
   @override
@@ -135,6 +158,9 @@ class _JudgePageState extends State<JudgePage> {
     if (!_canJudge) return; // ignore repeated taps
 
     FocusScope.of(context).unfocus();
+    // Remember the names for next time. Failing to save them should not
+    // stop the verdict, so the error is ignored.
+    verdictRepository.saveNames(_names).ignore();
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -176,11 +202,7 @@ class _JudgePageState extends State<JudgePage> {
     // Set before saving so a second tap cannot record it twice.
     setState(() => _isRecorded = true);
     try {
-      await verdictRepository.save(
-        verdict: verdict,
-        wifeName: _wifeName,
-        husbandName: _husbandName,
-      );
+      await verdictRepository.save(verdict);
     } catch (_) {
       if (!mounted) return;
       setState(() => _isRecorded = false);
