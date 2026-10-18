@@ -52,77 +52,26 @@ class VerdictRepository {
   Future<Database> _open() async {
     return _database ??= await openDatabase(
       p.join(await getDatabasesPath(), 'dish_judge.db'),
-      version: 2,
-      // Runs only on a fresh install.
+      version: 1,
       onCreate: (db, version) async {
-        await db.execute(_createVerdictsSql(_verdicts));
-        await db.execute(_createSettingsSql);
-      },
-      // Runs when an older database is opened, inside a transaction.
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) await _upgradeToVersion2(db);
+        await db.execute('''
+          CREATE TABLE $_verdicts (
+            id TEXT PRIMARY KEY,
+            judged_at TEXT NOT NULL,
+            loser TEXT NOT NULL,
+            dish_difficulty INTEGER NOT NULL,
+            reason TEXT NOT NULL
+          )
+        ''');
+        // One row per setting, such as `('wife_name', 'Hanako')`.
+        await db.execute('''
+          CREATE TABLE $_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+          )
+        ''');
       },
     );
-  }
-
-  static String _createVerdictsSql(String table) =>
-      '''
-    CREATE TABLE $table (
-      id TEXT PRIMARY KEY,
-      judged_at TEXT NOT NULL,
-      loser TEXT NOT NULL,
-      dish_difficulty INTEGER NOT NULL,
-      reason TEXT NOT NULL
-    )
-  ''';
-
-  /// One row per setting, such as `('wife_name', 'Hanako')`.
-  static const _createSettingsSql =
-      '''
-    CREATE TABLE IF NOT EXISTS $_settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    )
-  ''';
-
-  /// Version 1 stored the names on every verdict. Version 2 keeps them once in
-  /// the settings table and drops the per-verdict name columns.
-  ///
-  /// Every step checks what is already there, so this also finishes a
-  /// database left half-upgraded: one was seen with all the changes applied
-  /// but its version still at 1.
-  static Future<void> _upgradeToVersion2(Database db) async {
-    await db.execute(_createSettingsSql);
-
-    final columns = await db.rawQuery('PRAGMA table_info($_verdicts)');
-    if (!columns.any((column) => column['name'] == 'wife_name')) return;
-
-    // Carry over the names from the newest verdict, unless they were only
-    // the "Wife" / "Husband" fallbacks. `OR IGNORE` keeps a name that is
-    // already saved.
-    for (final (column, fallback) in [
-      ('wife_name', 'Wife'),
-      ('husband_name', 'Husband'),
-    ]) {
-      await db.execute('''
-        INSERT OR IGNORE INTO $_settings (key, value)
-        SELECT '$column', $column FROM $_verdicts
-        WHERE $column != '$fallback'
-        ORDER BY judged_at DESC
-        LIMIT 1
-      ''');
-    }
-
-    // Older SQLite versions cannot drop a column, so copy the rows into a new
-    // table without the name columns and swap it in.
-    await db.execute('DROP TABLE IF EXISTS ${_verdicts}_new');
-    await db.execute(_createVerdictsSql('${_verdicts}_new'));
-    await db.execute('''
-      INSERT INTO ${_verdicts}_new (id, judged_at, loser, dish_difficulty, reason)
-      SELECT id, judged_at, loser, dish_difficulty, reason FROM $_verdicts
-    ''');
-    await db.execute('DROP TABLE $_verdicts');
-    await db.execute('ALTER TABLE ${_verdicts}_new RENAME TO $_verdicts');
   }
 
   /// Adds [verdict] to the history.
