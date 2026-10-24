@@ -8,14 +8,13 @@ import 'verdict_repository.dart';
 import 'widgets/section_card.dart';
 import 'widgets/verdict_view.dart';
 
-/// The chores that can be selected.
+/// The chores that can be selected. Anything else is typed in "Other".
 const List<String> chores = [
   'Cooking',
   'Laundry',
   'Cleaning',
   'Trash',
   'Shopping',
-  'Other',
 ];
 
 class JudgePage extends StatefulWidget {
@@ -32,6 +31,10 @@ class _JudgePageState extends State<JudgePage> {
   // The checked chores.
   final Set<String> _wifeChores = {};
   final Set<String> _husbandChores = {};
+
+  // Chores that are not in the list, typed in freely.
+  final _wifeOtherController = TextEditingController();
+  final _husbandOtherController = TextEditingController();
 
   // The selected sink image.
   Uint8List? _imageBytes;
@@ -52,9 +55,16 @@ class _JudgePageState extends State<JudgePage> {
   String get _wifeName => _names.wifeLabel;
   String get _husbandName => _names.husbandLabel;
 
-  // Judging is possible once there is an image and at least one checked chore.
+  String get _wifeOther => _wifeOtherController.text.trim();
+  String get _husbandOther => _husbandOtherController.text.trim();
+
+  // Judging is possible once there is an image and at least one chore.
   bool get _canJudge {
-    final hasChores = _wifeChores.isNotEmpty || _husbandChores.isNotEmpty;
+    final hasChores =
+        _wifeChores.isNotEmpty ||
+        _husbandChores.isNotEmpty ||
+        _wifeOther.isNotEmpty ||
+        _husbandOther.isNotEmpty;
     return _imageBytes != null && hasChores && !_isLoading;
   }
 
@@ -88,6 +98,8 @@ class _JudgePageState extends State<JudgePage> {
   void dispose() {
     _wifeNameController.dispose();
     _husbandNameController.dispose();
+    _wifeOtherController.dispose();
+    _husbandOtherController.dispose();
     super.dispose();
   }
 
@@ -175,6 +187,8 @@ class _JudgePageState extends State<JudgePage> {
         // Keep the same order as on screen.
         wifeChores: chores.where(_wifeChores.contains).toList(),
         husbandChores: chores.where(_husbandChores.contains).toList(),
+        wifeOtherChores: _wifeOther,
+        husbandOtherChores: _husbandOther,
       );
       if (!mounted) return;
       setState(() {
@@ -333,7 +347,7 @@ class _JudgePageState extends State<JudgePage> {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Check at least one chore and add a photo of the sink',
+              'Add at least one chore and a photo of the sink',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -410,7 +424,30 @@ class _JudgePageState extends State<JudgePage> {
               checkbox(_husbandChores, chore),
             ],
           ),
+        const SizedBox(height: 12),
+        _buildOtherField(_wifeOtherController, '👩 $_wifeName'),
+        const SizedBox(height: 12),
+        _buildOtherField(_husbandOtherController, '👨 $_husbandName'),
       ],
+    );
+  }
+
+  /// A field for chores that are not in the list.
+  Widget _buildOtherField(TextEditingController controller, String person) {
+    return TextField(
+      controller: controller,
+      enabled: !_isLoading,
+      maxLength: 200,
+      minLines: 1,
+      maxLines: 3,
+      // Rebuild on every change so the judge button turns on and off.
+      onChanged: (_) => setState(() {}),
+      decoration: InputDecoration(
+        labelText: '$person: other chores',
+        hintText: 'e.g. Cleaned the bathtub, ironed shirts',
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
     );
   }
 }
