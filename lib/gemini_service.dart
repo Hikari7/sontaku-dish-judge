@@ -9,8 +9,8 @@ import 'package:http/http.dart' as http;
 /// (See README.md for how to set it up.)
 const String geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
 
-/// The Gemini models to use (stable Flash models), best first.
-/// When one is too busy (503), the next one is tried.
+/// The Gemini models to use (stable Flash models), tried in this order.
+/// When one is too busy (503 or a timeout), the next one is tried.
 /// https://ai.google.dev/gemini-api/docs/models
 const List<String> geminiModels = [
   'gemini-3.8-flash',
@@ -144,9 +144,9 @@ The attached image is a photo of the sink right now. Please give your verdict.
     },
   };
 
-  // Gemini answers 503 when a model is too busy. That happens often, so on a
-  // 503 move on to the next model in the list.
-  late http.Response response;
+  // A busy model either answers 503 or takes minutes to answer. That happens
+  // often, so on a 503 or a timeout move on to the next model in the list.
+  http.Response? response;
   for (final model in geminiModels) {
     final uri = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
@@ -161,11 +161,10 @@ The attached image is a photo of the sink right now. Please give your verdict.
             },
             body: jsonEncode(requestBody),
           )
-          .timeout(const Duration(seconds: 60));
+          .timeout(const Duration(seconds: 30));
     } on TimeoutException {
-      throw const GeminiException(
-        'The AI judge did not respond (timeout). Please try again.',
-      );
+      response = null;
+      continue;
     } catch (_) {
       throw const GeminiException(
         'Could not connect to Gemini. Please check your network connection.',
@@ -175,6 +174,11 @@ The attached image is a photo of the sink right now. Please give your verdict.
     if (response.statusCode != 503) break;
   }
 
+  if (response == null) {
+    throw const GeminiException(
+      'The AI judge did not respond (timeout). Please try again.',
+    );
+  }
   if (response.statusCode != 200) {
     throw GeminiException(_describeHttpError(response.statusCode));
   }
